@@ -11,3 +11,9 @@
 *.lai
 *.la
 *.a
+Debug
+Release
+/win32project/*.sdf
+/win32project/*.user
+/win32project/*.opensdf
+/win32project/ipch/cuda-sim-13546dbf/*.ipch
