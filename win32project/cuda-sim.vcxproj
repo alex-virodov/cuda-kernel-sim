@@ -12,6 +12,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\main.cpp" />
+    <ClCompile Include="..\src\main2.cpp" />
     <ClCompile Include="..\src\wb.cpp" />
   </ItemGroup>
   <ItemGroup>

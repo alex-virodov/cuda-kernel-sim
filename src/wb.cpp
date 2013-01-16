@@ -35,9 +35,9 @@ void run_queue()
 {
 	while (!queue.empty()) {
 		// Compute blockidx, threadidx
-		blockIdx.x  = blockIdx.y  = blockIdx.z  = blockIdx.w  = 0;
 		threadIdx.x = threadIdx.y = threadIdx.z = threadIdx.w = 0;
-		threadIdx.x = queue.front().id;
+		threadIdx.x = queue.front().id % blockDim.x;
+		threadIdx.y = queue.front().id / blockDim.x;
 
 		// Execute the fiber until either returns or yields
 		SwitchToFiber(queue.front().fiber);
@@ -67,15 +67,18 @@ void run_scheduler(tv& szblk, tv& szgrid, tclosure& closure)
 
 	blockDim = szblk;
 
-	for (int i = 0; i < szgrid.x; i++) {
-		blockIdx.x = i;
+	for (int j = 0; j < szgrid.y; j++) {
+		for (int i = 0; i < szgrid.x; i++) {
+			blockIdx.x = i;
+			blockIdx.y = j;
 
-		for (int u = 0; u < szblk.x; u++) {
-			qentry q = { i*szblk.x + u, CreateFiber(1024, q_start, (LPVOID)&closure), qentry::started };
-			//queue.push_back(q);
-			queue.push_front(q); // in reverse order to not rely on order of scheduling (since this is not really parallel)
+			for (int u = 0; u < szblk.x*szblk.y; u++) {
+				qentry q = { u, CreateFiber(1024, q_start, (LPVOID)&closure), qentry::started };
+				//queue.push_back(q);
+				queue.push_front(q); // in reverse order to not rely on order of scheduling (since this is not really parallel)
+			}
+			run_queue();
 		}
-		run_queue();
 	}
 }
 
