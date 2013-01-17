@@ -10,7 +10,8 @@ tv threadIdx;
 
 // A thread queue entry
 struct qentry { 
-	int   id;						// Thread id, used to compute blk/thread xyz
+	tv    threadIdx;
+	int   id;						// Thread id (for debugging)
 	void* fiber;					// System fiber id
 	enum  { started, done } state;	// Thread state, needed for cleanup
 };
@@ -35,9 +36,7 @@ void run_queue()
 {
 	while (!queue.empty()) {
 		// Compute blockidx, threadidx
-		threadIdx.x = threadIdx.y = threadIdx.z = threadIdx.w = 0;
-		threadIdx.x = queue.front().id % blockDim.x;
-		threadIdx.y = queue.front().id / blockDim.x;
+		threadIdx = queue.front().threadIdx;
 
 		// Execute the fiber until either returns or yields
 		SwitchToFiber(queue.front().fiber);
@@ -58,8 +57,6 @@ void run_queue()
 //** one block at a time.
 void run_scheduler(tv& szblk, tv& szgrid, tclosure& closure)
 {
-	const int wrap_size = 8;
-
 	fiber_main = ConvertThreadToFiber(0);
 
 	blockIdx.x  = blockIdx.y  = blockIdx.z  = blockIdx.w  = 0;
@@ -67,17 +64,25 @@ void run_scheduler(tv& szblk, tv& szgrid, tclosure& closure)
 
 	blockDim = szblk;
 
-	for (int j = 0; j < szgrid.y; j++) {
-		for (int i = 0; i < szgrid.x; i++) {
-			blockIdx.x = i;
-			blockIdx.y = j;
+	for (int k = 0; k < szgrid.z; k++) {
+		for (int j = 0; j < szgrid.y; j++) {
+			for (int i = 0; i < szgrid.x; i++) {
+				blockIdx.x = i;
+				blockIdx.y = j;
+				blockIdx.z = k;
 
-			for (int u = 0; u < szblk.x*szblk.y; u++) {
-				qentry q = { u, CreateFiber(1024, q_start, (LPVOID)&closure), qentry::started };
-				//queue.push_back(q);
-				queue.push_front(q); // in reverse order to not rely on order of scheduling (since this is not really parallel)
+				for (int w = 0; w < szblk.z; w++) {
+					for (int v = 0; v < szblk.y; v++) {
+						for (int u = 0; u < szblk.x; u++) {
+							int id = u + v*szblk.y + w*szblk.x*szblk.y;
+							qentry q = { tv(u,v,w,0), id, CreateFiber(1024, q_start, (LPVOID)&closure), qentry::started };
+							//queue.push_back(q);
+							queue.push_front(q); // in reverse order to not rely on order of scheduling (since this is not really parallel)
+						}
+					}
+				}
+				run_queue();
 			}
-			run_queue();
 		}
 	}
 }
